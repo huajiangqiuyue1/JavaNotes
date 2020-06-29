@@ -100,30 +100,171 @@ JDK1.8以及之后，做了一些优化和改进，锁粒度的细化。
 
 如果多个线程对同一个位置进行操作，CAS失败的线程，就会在这个位置基于链表+红黑树来进行处理，synchronized([5]),进行加锁。
 
-综上所述，JDK1.8之后，只有对相同位置的元素操作，才会加锁实行串行化操作，对不同位置进行操作是并发执行的(多线程同时访问一个共享数据可以用sychronized，CAS，ConcurrentHashMap，同时也可以用Lock)
-
+综上所述，JDK1.8之后，只有对相同位置的元素操作，才会加锁实行串行化操作，对不同位置进行操作是并发执行的()
 
 ###  05. 对JDK中的AQS了解吗？AQS的实现原理是什么？
 
+多线程同时访问一个共享数据可以用sychronized，CAS，ConcurrentHashMap，同时也可以用本小节学的Lock，他的底层基于AQS技术。Abstract Queued Synchronizer简称为AQS，抽象队列同步器。
 
+```java
+在创建锁时候 可以创建公平锁和非公平锁
+创建非公平锁
+ReentrantLock lock = new ReentrantLock();//非公平锁
+创建公平锁
+ReentrantLock lock = new ReentrantLock(true);//公平锁
+lock.lock();
+
+lock.unlock();
+```
+
+非公平锁，当线程 1结束运行释放锁以后，线程1唤醒线程2（此时线程2位于等待队列），还没等线程2 CAS成功，此时冒出线程3插队直接加锁，则线程2失败，继续进入等待队列。
+
+公平锁，按照上述场景，当3来时先回判断等待队列是否有线程 有则无法插队进入等待队列。
+
+![image-20200628183126941](img/image-20200628183126941.png)
 
 ###  06.说说线程池的底层工作原理？
 
+首先说一说为什么要有线程池（优点）。
+
+系统是不可能频繁的创建线程又销毁线程的，这样会非常影响性能，所以我们需要线程池，优点如下：
+
+第一：降低资源消耗。通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
+
+第二：提高响应速度。当任务到达时，任务可以不需要等到线程创建就能立即执行。
+
+第三：提高线程的可管理性。线程是稀缺资源，如果无限制地创建，不仅会消耗系统资源，
+
+创建线程池
+
+```jav
+ ExecutorService threadPool = Executors.newFixedThreadPool(3);//corePoolSize=3
+        threadPool.submit(new Callable<>() {
+
+            @Override
+            public Object call() throws Exception {
+                return null;
+            }
+            
+        });
+
+```
+
+**执行原理：**（ 创建线程池时，线程池里面是没有线程的。）提交任务后，会首先判断线程池中的线程的数量是否小于corePoolSize（也就是上面的3），如果小于，就会创建一个线程来执行这个任务。
+
+当任务来时，先判断线程池里面是否有空闲线程，有空闲线程则提交任务，知道当线程数量等于corePoolSize，无则在队列阻塞等待，（如果阻塞队列满了，那就创建新的线程执行当前任务，直到线程池中的线程数达到maxPoolSize，这时再有任务来，由饱和（拒绝）策略来处理提交的任务）
+
+![image-20200628185216333](img/image-20200628185216333.png)
+
 ###  07.说说线程池的核心配置参数是干什么的？应该怎么用？
 
-###  08.如果在线程中使用无界阻塞队列会发生什么问题？等同于问，在远服务异常的情况下，使用无界阻塞队列，是否会导致内存异常飙升？
+ ```jav
+当我们调用上一节的函数生成fixed线程池的时候
+ExecutorService threadPool = Executors.newFixedThreadPool(3);
+它的底层执行的代码如下
+return new ThreadPoolExecutor(
+		nThreads,//corePoolSize
+        nThreads,//maximumPoolSize(当线程到达corePoolSize，且等待队列满 则可继续创建直到=max...,当任务执行完后，等待设定的等待时间，此期间若无任务提交 则会销毁）
+        long keepAliceTime,//表示等待的时间
+        TimeUint.MiLLISECONDS,//代表keepAliceTime（等待时间）单位为毫秒
+        new LinkedBlockingQueue<Runnable>(n),//设置线程池放任务的等待队列的个数为n
+        RejectedExecutionHandler handler); //饱和策略
+
+ ```
 
 
+
+
+
+###  08. 如果在线程中使用无界阻塞队列会发生什么问题？等同于问，在远服务异常的情况下，使用无界阻塞队列，是否会导致内存异常飙升？
+
+![image-20200629215230885](img/image-20200629215230885.png)
+
+调用超时，队列变的越来越大，此时会导致内存飙升起来，而且还可能会导致内存溢出。
 
 ###  09.线程池的队列满了之后，会发生什么？
 
+如果使用的是无界队列 LinkedBlockingQueue，也就是无界队列的话，没关系，继续添加任务到阻塞队列中等待执行，因为 LinkedBlockingQueue 可以近乎认为是一个无穷大的队列，可以无限存放任务
+
+如果使用的是有界队列比如 ArrayBlockingQueue，任务首先会被添加到ArrayBlockingQueue 中，ArrayBlockingQueue 满了，会根据maximumPoolSize 的值增加线程数量，如果增加了线程数量还是处理不过来，ArrayBlockingQueue 继续满，那么则会使用拒绝策略RejectedExecutionHandler 处理满了的任务，默认是 AbortPolicy
+
+**四种饱和(拒绝)策略：**
+
+ThreadPoolExecutor.**AbortPolicy**:丢弃任务并抛出RejectedExecutionException异常。 ThreadPoolExecutor.**DiscardPolicy**：丢弃任务，但是不抛出异常。 ThreadPoolExecutor.**DiscardOldestPolicy**：丢弃队列最前面的任务，然后重新提交被拒绝的任务 ThreadPoolExecutor.**CallerRunsPolicy**：由调用线程（提交任务的线程）处理该任务
+
 ###  10.如果线上机器突然宕机，线程池的阻塞队列中的请求怎么办？
+
+必然会导致线程池中积压的任务（等待队列中的任务）都会丢失。
+
+如何解决这个问题呢？
+
+我们可以在提交任务之前，在数据库中插入这个任务的信息，更新任务的状态：未提交、已提交、已完成。提交成功后，更新它的状态是已提交状态。
+
+系统重启后，用一个后台线程去扫描数据库里的未提交和已提交状态的任务，可以把任务的信息读取出来，重新提交到线程池里去，继续进行执行。
 
 ###  11.谈谈对JAVA内存模型的理解？
 
+read(读取)、load(载入)、use(使用)、assign(赋值)、store(存储)、write(写入)
+
+- **lock（锁定）**：作用于主内存中的变量，它把一个变量标识为一条线程独占的状态。
+- **unlock（解锁）**：作用于主内存中的变量，它把一个处于锁定状态的变量释放出来，释放后的变量才可以被其他线程锁定。
+- **read（读取）**：作用于主内存中的变量，它把一个变量从主内存传输到线程的工作内存中。
+- **load（载入）**：作用于工作内存中的变量，它把read操作读取的值放入工作内存的变量副本中
+- **use（使用）**：作用于工作内存中的变量，它把工作内存中一个变量的值传递给执行引擎，每当虚拟机遇到一个需要使用变量的值的字节码指令时都会执行这个操作。
+- **assign（赋值）**：作用于工作内存中的变量，它把一个从执行引擎接收到的值赋给工作内存中的变量，每当虚拟机遇到一个给变量赋值的字节码指令时都会执行这个操作。
+- **store（存储）**：作用于工作内存中的变量，它把一个变量的值传递到主内存中。
+- **write（写入）**：作用于主内存中的变量，它把store操作从工作内存中得到的变量的值放入主内存的变量中。
+
+多个线程之间是不能互相传递数据通信的，它们之间的沟通只能通过共享变量来进行。Java内存模型（JMM）规定了jvm有主内存，所有的变量都存储在主内存中，每条线程还有自己的工作内存，线程的工作内存中保存了该条线程所使用到的变量在主内存中的副本。线程的所有操作都必须在工作内存中进行，而不能直接读写主内存中的变量。。当线程操作某个对象时，执行顺序如下：
+(1) 从主存复制变量到当前工作内存 (read and load)
+(2) 执行代码，改变共享变量值 (use and assign)
+(3) 用工作内存数据刷新主存相关内容 (store and write)
+
+例如下面代码：两个线程均对data操作，data本身为0，当线程1操作时，要先read主内存中data值然后load加载到工作内存中，然后执行代码use，改变共享变量值assign使工作内存中data变为1，然后store 最后写入主内存。
+
+```java
+public class HelloWord(){
+	private int data = 0;
+	public void increment(){
+		data++;
+	}
+}
+
+HelloWorld helloWorld = new HelloWorld();
+
+//线程1
+new Thread(){
+	public void run(){
+		helloWorld.increment();
+		}
+	}.start();
+
+//线程2
+new Thread(){
+	public void run(){
+		helloWorld.increment();
+		}
+	}.start();
+
+```
+
+
+
+![image-20200629231209897](img/image-20200629231209897.png)
+
 ###  12.说说JAVA内存模型中的原子性、有序性、可见性？
 
+连环炮：Java内存模型 > 原子性、可见性、有序性 > volatile > happens-before/内存屏障 
+
+**可见性** 就是如果有多个线程对一个数据进行操作时，如果一个线程成功修改了数据，那么其他线程能够立即更新工作内存中的该数据，即随时保持最新数据状态。这就叫有可见性，反之没有可见性。(如上个例子当线程1更新data=1，后立刻强制更新线程2获取data值为更新后的值)
+
+**原子性** 就是当有一个线程在对内存中的某个数据进行操作的时候，必须要等这个线程完全操作结束后，其他线程才能够操作，这就是原子性。反之就是没有原子性，多线程默认是没有原子性的，需要我们通过各种方式来实现原子性，如同步等等。（lock、unlock之间的内存操作具备原子性）
+
+**有序性** 就是代码的顺序应该和指令的顺序相同。在执行过程中不会发生指令重排，这就是有序性，反之就是没有有序性。
+
 ###  13.能从JAVA底层角度聊聊volatile关键字的原理么？
+
+
 
 ### 14你知道指令重排、内存栅栏以及happens-before这些是什么？
 
