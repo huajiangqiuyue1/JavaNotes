@@ -1,8 +1,8 @@
-		Spring Framework 简称 Spring，是 Java 开发中最常用的框架，为了解决企业应用程序开发复杂性而创建的，地位仅次于 Java API，就连近几年比较流行的微服务框架 SpringBoot，也是基于 Spring 实现的，SpringBoot 的诞生是为了让开发者更方便地使用 Spring，因此 Spring 在 Java 体系中的地位可谓首屈一指。
+​		Spring Framework 简称 Spring，是 Java 开发中最常用的框架，为了解决企业应用程序开发复杂性而创建的，地位仅次于 Java API，就连近几年比较流行的微服务框架 SpringBoot，也是基于 Spring 实现的，SpringBoot 的诞生是为了让开发者更方便地使用 Spring，因此 Spring 在 Java 体系中的地位可谓首屈一指。
 
 ### 01.说说你对Spring的IOC机制的理解可以嘛？
 
-**程序的耦合和解耦   IOC叫控制反转其目的就是为了降低程序的耦合性**，使类与类之间彻底的解耦合（现在这套比较高大上的一点系统里，有几十个类都使用了@Resource或者@Autowired这个注解去标注MyService  myService， 几十个地方都依赖了这个类，如果要修改实现类为NewServiceManagerlmpl，此时只需要将MyService中注解@Service加到NewServiceManagerlmpl中即可 ），不是什么技术，而是一种设计思想。**在Java开发中，**Ioc意味着将你设计好的对象交给容器控制，而不是传统的在你的对象内部直接控制。比如，某个实现类注解@Service  而控制层代码
+**程序的耦合和解耦   IOC叫控制反转其目的就是为了降低程序的耦合性**，使类与类之间彻底的解耦合（现在这套比较高大上的一点系统里，有几十个类都使用了@Resource或者@Autowired这个注解去标注MyService  myService， 几十个地方都依赖了这个类，如果要修改实现类为NewServiceManagerlmpl，此时只需要将MyService中注解@Service加到NewServiceManagerlmpl中即可 ），不是什么技术，而是一种设计思想。**在Java开发中**，Ioc意味着将你设计好的对象交给容器控制，而不是传统的在你的对象内部直接控制。比如，某个实现类注解@Service  而控制层代码
 
 ```java
 @Autowired
@@ -111,6 +111,7 @@ public class UserService {
 ![image-20200706001921967](img/image-20200706001921967.png)
 
 **Spring AOP and AspectJ AOP 有什么区别？AOP 有哪些实现方式？**
+
 AOP实现的关键在于 代理模式，AOP代理主要分为静态代理和动态代理。**静态代理的代表为AspectJ**；**动态代理则以Spring AOP为代表**。
 
 （1）AspectJ是静态代理的增强，所谓静态代理，就是AOP框架会在编译阶段生成AOP代理类，因此也称为编译时增强，他会在编译阶段将AspectJ(切面)织入到Java字节码中，运行的时候就是增强之后的AOP对象。
@@ -252,18 +253,26 @@ ThreadLocal中(推荐的一种方式)
 
 ### 05.Spring的事务实现原理是什么？能聊聊你对事务传播机制的理解么？
 
-**事务的实现原理：**如果说你加了一个@Transactional注解，此时spring就会使用AOP的思想，对你的这个方法在执行之前去开启事务，执行完毕之后，根据你方法是否报错，来决定回滚还是提交事务。
+**事务的实现原理**：如果说你加了一个@Transactional注解，此时spring就会使用AOP的思想，对你的这个方法在执行之前去开启事务，执行完毕之后，根据你方法是否报错，来决定回滚还是提交事务。
 
 **支持当前事务的情况:**
+
 ●TransactionDefinition.PROPAGATION_ REQUIRED: 如果当前存在事务， 则加入该事务;如果当前没有事务，则创建一个新的事务。
+
 ●TransactionDefinition.PROPAGATION_ SUPPORTS: 如果当前存在事务，则加入该事务;如果当前没有事务，则以非事务的方式继续运行。
+
 ●TransactionDefinition.PROPAGATION_ MANDATORY: 如果当前存在事务，则加入该事务;如果当前没有事务，则抛出异常。(mandatory: 强制性)
 
 **不支持当前事务的情况:**
+
 ●TransactionDefinition.PROPAGATION_ REQUIRES_ NEW:创建一个新的事务，如果当前存在事务，则把当前事务挂起。
+
 ●TransactionDefinition.PROPAGATION_ NOT_ SUPPORTED: 以非事务方式运行，如果当前存在事务，则把当前事务挂起。
+
 ●TransactionDefinition.PROPAGATION_ NEVER: 以非事务方式运行，如果当前存在事务，则抛出异常。
+
 **其他情况**（嵌套：方法A调用方法B, 如果B出错，方法B只能回滚他自己，方法A则会可以带着方法B一起回滚，NESTED嵌套事务。）:
+
 ●TransactionDefinition.PROPAGATION_ NESTED: 如果当前存在事务，则创
 建一个事务作为当前事务的嵌套事务来运行;如果当前没有事务，则该取值等价于
 TransactionDefinition.PROPAGATION_ REQUIRED。
@@ -271,9 +280,11 @@ TransactionDefinition.PROPAGATION_ REQUIRED。
 ### 06.画一张图说说spring boot的核心框架？
 
 **1、什么是 Spring Boot？**
+
 Spring Boot 是 Spring 开源组织下的子项目，是 Spring 组件一站式解决方案，主要是简化了使用 Spring 的难度，简省了繁重xml的配置，提供了各种启动器，在运行过程中自定配置, 开发者能快速上手。
 
 **2、为什么要用 Spring Boot？**
+
 Spring Boot 主要有如下优点：
 
 - 容易上手，提升开发效率，为 Spring 开发提供一个更快、更广泛的入门体验。
@@ -283,6 +294,7 @@ Spring Boot 主要有如下优点：
 - 避免大量的 Maven 导入和各种版本冲突。
 
 **3、Spring Boot 的核心注解是哪个？它主要由哪几个注解组成的？**
+
 启动类上面的注解是@SpringBootApplication，它也是 Spring Boot 的核心注解，主要组合包含了以下 3 个注解：
 
 @SpringBootConfiguration：组合了 @Configuration 注解，实现配置文件的功能。
@@ -290,7 +302,9 @@ Spring Boot 主要有如下优点：
 @EnableAutoConfiguration：打开自动配置的功能，也可以关闭某个自动配置的选项，如关闭数据源自动配置功能： @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })。
 
 @ComponentScan：Spring组件扫描
+
 **4、Spring Boot 的配置文件有哪几种格式？它们有什么区别？**
+
 .properties 和 .yml，它们的区别主要是书写格式不同。YAML 是一种人类可读的数据序列化语言。那么 YAML 配置和传统的 properties 配置相比到底有哪些优势呢？
 
 1. 配置有序，在一些特殊的场景下，配置有序很关键
