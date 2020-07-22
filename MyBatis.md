@@ -1021,3 +1021,475 @@ select * from teacher where id = #{tid}
 
 - JavaType是用来指定pojo中属性的类型
 - ofType指定的是映射到list集合属性中pojo的类型。
+
+## 12、动态SQL
+
+动态SQL：动态SQL就是指根据不同条件生成不同的SQL语句
+
+### 12.1 搭建环境
+
+数据库
+
+```mysql
+CREATE TABLE `blog` (
+`id` varchar(50) NOT NULL COMMENT '博客id',
+`title` varchar(100) NOT NULL COMMENT '博客标题',
+`author` varchar(30) NOT NULL COMMENT '博客作者',
+`create_time` datetime NOT NULL COMMENT '创建时间',
+`views` int(30) NOT NULL COMMENT '浏览量'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+```
+
+创建IDutils类，随机生成id
+
+```java
+public class IDUtil {
+
+   public static String genId(){
+       return UUID.randomUUID().toString().replaceAll("-","");
+  }
+}
+```
+
+创建实体类
+
+```java
+public class Blog {
+   private String id;
+   private String title;
+   private String author;
+   private Date createTime;
+   private int views;
+   //set，get....
+}
+```
+
+创建Mapper接口
+
+创建Mapper.XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+       PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+       "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.niu.dao.BlogMapper">
+
+</mapper>
+```
+
+mybatis核心配置文件，下划线驼峰自动转换
+
+```xml
+<settings>
+   <setting name="mapUnderscoreToCamelCase" value="true"/>
+   <setting name="logImpl" value="STDOUT_LOGGING"/>
+</settings>
+<!--注册Mapper.xml-->
+<mappers>
+ <mapper resource="Mapper/BlogMapper.xml"/>
+</mappers>
+```
+
+插入初始数据
+
+```java
+int addBlog(Blog blog);
+```
+
+sql配置文件
+
+编写接口
+
+```xml
+<insert id="addBlog" parameterType="blog">
+  insert into blog (id, title, author, create_time, views)
+  values (#{id},#{title},#{author},#{createTime},#{views});
+</insert>
+```
+
+添加数据
+
+```java
+@Test
+public void addInitBlog(){
+    SqlSession session = MyBatisUtils.getSession();
+    BlogMapper mapper = session.getMapper(BlogMapper.class);
+
+    Blog blog = new Blog();
+    blog.setId(IDUtils.getId());
+    blog.setTitle("Mybatis如此简单");
+    blog.setAuthor("牛一");
+    blog.setCreateTime(new Date());
+    blog.setViews(9999);
+
+    mapper.addBlog(blog);
+
+    blog.setId(IDUtils.getId());
+    blog.setTitle("Java如此简单");
+    blog.setAuthor("牛二");
+    mapper.addBlog(blog);
+
+    blog.setId(IDUtils.getId());
+    blog.setTitle("Spring如此简单");
+    mapper.addBlog(blog);
+
+    blog.setId(IDUtils.getId());
+    blog.setTitle("微服务如此简单");
+    blog.setAuthor("牛三");
+    mapper.addBlog(blog);
+
+    session.close();
+}
+```
+
+### 12.2 If标签
+
+1、编写接口类
+
+```java
+//需求1
+List<Blog> queryBlogIf(Map map);
+```
+
+2、编写SQL语句
+
+```xml
+<!--需求1：
+根据作者名字和博客名字来查询博客！
+如果作者名字为空，那么只根据博客名字查询，反之，则根据作者名来查询
+select * from blog where title = #{title} and author = #{author}
+-->
+<select id="queryBlogIf" parameterType="map" resultType="blog">
+  select * from blog where
+   <if test="title != null">
+      title = #{title}
+   </if>
+   <if test="author != null">
+      and author = #{author}
+   </if>
+</select>
+```
+
+3、测试
+
+```java
+@Test
+public void testQueryBlogIf(){
+   SqlSession session = MybatisUtils.getSession();
+   BlogMapper mapper = session.getMapper(BlogMapper.class);
+
+   HashMap<String, String> map = new HashMap<String, String>();
+   map.put("title","Mybatis如此简单");
+   map.put("author","牛一java");
+   List<Blog> blogs = mapper.queryBlogIf(map);
+
+   System.out.println(blogs);
+
+   session.close();
+}
+```
+
+这样写我们可以看到，如果 author 等于 null，那么查询语句为 select * from user where title=#{title},但是如果title为空呢？那么查询语句为 select * from user where and author=#{author}，这是错误的 SQL 语句，如何解决呢？请看下面的 where 语句！
+
+### 12.2 where标签
+
+```xml
+<select id="queryBlogIf" parameterType="map" resultType="blog">
+  select * from blog
+   <where>
+       <if test="title != null">
+          title = #{title}
+       </if>
+       <if test="author != null">
+          and author = #{author}
+       </if>
+   </where>
+</select>
+```
+
+### 12.3 set标签（更新）
+
+1、编写接口方法
+
+```java
+int updateBlog(Map map);
+```
+
+2、sql配置文件
+
+```xml
+<!--注意set是用的逗号隔开-->
+<update id="updateBlog" parameterType="map">
+  update blog
+     <set>
+         <if test="title != null">
+            title = #{title},
+         </if>
+         <if test="author != null">
+            author = #{author}
+         </if>
+     </set>
+  where id = #{id};
+</update>
+```
+
+3、测试
+
+```java
+@Test
+public void testUpdateBlog(){
+   SqlSession session = MybatisUtils.getSession();
+   BlogMapper mapper = session.getMapper(BlogMapper.class);
+
+   HashMap<String, String> map = new HashMap<String, String>();
+   map.put("title","动态SQL");
+   map.put("author","测试");
+   map.put("id","9d6a763f5e1347cebda43e2a32687a77");
+
+   mapper.updateBlog(map);
+
+
+   session.close();
+}
+```
+
+### 12.4 choose、when、otherwise
+
+有时候，我们不想使用所有的条件，而只是想从多个条件中选择一个使用。针对这种情况，MyBatis 提供了 choose 元素，它有点像 Java 中的 switch 语句。
+
+还是上面的例子，但是策略变为：传入了 “title” 就按 “title” 查找，传入了 “author” 就按 “author” 查找的情形。若两者都没有传入，就返回标记为 featured 的 BLOG（这可能是管理员认为，与其返回大量的无意义随机 Blog，还不如返回一些由管理员挑选的 Blog）。
+
+```xml
+<select id="findActiveBlogLike"
+     resultType="Blog">
+  SELECT * FROM BLOG WHERE state = ‘ACTIVE’
+  <choose>
+    <when test="title != null">
+      AND title like #{title}
+    </when>
+    <when test="author != null and author.name != null">
+      AND author_name like #{author.name}
+    </when>
+    <otherwise>
+      AND views = #{views}
+    </otherwise>
+  </choose>
+</select>
+```
+
+## 13、缓存（了解）
+
+### 13.1 简介
+
+1、什么是缓存 [ Cache ]？
+
+- 存在内存中的临时数据。
+- 将用户经常查询的数据放在缓存（内存）中，用户去查询数据就不用从磁盘上(关系型数据库数据文件)查询，从缓存中查询，从而提高查询效率，解决了高并发系统的性能问题。
+
+2、为什么使用缓存？
+
+- 减少和数据库的交互次数，减少系统开销，提高系统效率。
+
+3、什么样的数据能使用缓存？
+
+- 经常查询并且不经常改变的数据。
+
+### 13.2 Mybatis缓存
+
+- MyBatis包含一个非常强大的查询缓存特性，它可以非常方便地定制和配置缓存。缓存可以极大的提升查询效率。
+
+- MyBatis系统中默认定义了两级缓存：**一级缓存**和**二级缓存**
+
+- - 默认情况下，只有一级缓存开启。（SqlSession级别的缓存，也称为本地缓存）
+  - 二级缓存需要手动开启和配置，他是基于namespace级别的缓存。
+  - 为了提高扩展性，MyBatis定义了缓存接口Cache。我们可以通过实现Cache接口来自定义二级缓存
+
+
+
+### 13.3 一级缓存
+
+一级缓存也叫本地缓存：
+
+- 与数据库同一次会话期间查询到的数据会放在本地缓存中。
+- 以后如果需要获取相同的数据，直接从缓存中拿，没必须再去查询数据库；
+
+```java
+ @Test
+    public void test(){
+        SqlSession sqlSession = MyBatisUtils.getSession();
+        UserMapper mapper = sqlSession.getMapper(UserMapper.class);
+        User u1 = mapper.queryUserById(1);
+        System.out.println(u1);
+        System.out.println("=========================");
+        User u2 = mapper.queryUserById(1);
+        System.out.println(u2);
+        System.out.println(u1==u2);
+        sqlSession.close();
+    }
+```
+
+![image-20200722213235432](img/image-20200722213235432.png)
+
+小结：一级缓存默认是开启的，只在一次SqlSession中有效，也就是拿到连接到关闭这个区间段。
+
+一级缓存的四种失效情况：
+
+- sqlSession不同
+- 增删改操作，可能会改变原来的数据，所以必定会刷新缓存
+- 查询不同的Mapper.xml
+- 手动清理缓存 ->  session.clearCache();
+
+### 13.4 二级缓存（全局缓存）
+
+- 二级缓存也叫全局缓存，一级缓存作用域太低了，所以诞生了二级缓存
+
+- 基于namespace级别的缓存，一个名称空间，对应一个二级缓存；
+
+- 工作机制
+
+- - 一个会话查询一条数据，这个数据就会被放在当前会话的一级缓存中；
+  - 如果当前会话关闭了，这个会话对应的一级缓存就没了；但是我们想要的是，会话关闭了，一级缓存中的数据被保存到二级缓存中；
+  - 新的会话查询信息，就可以从二级缓存中获取内容；
+  - 不同的mapper查出的数据会放在自己对应的缓存（map）中；
+
+
+
+> 使用步骤
+
+1、开启全局缓存 【mybatis-config.xml】
+
+```
+<setting name="cacheEnabled" value="true"/>
+```
+
+2、去每个mapper.xml中配置使用二级缓存，这个配置非常简单；【xxxMapper.xml】
+
+```xml
+直接开启
+<cache/>
+官方示例（带参开启）
+<cache
+ eviction="FIFO"
+ flushInterval="60000"
+ size="512"
+ readOnly="true"/>
+这个更高级的配置创建了一个 FIFO 缓存，每隔 60 秒刷新，最多可以存储结果对象或列表的 512 个引用，而且返回的对象被认为是只读的，因此对它们进行修改可能会在不同线程中的调用者产生冲突。
+```
+
+3、代码测试
+
+- 所有的实体类先实现序列化接口
+- 测试代码
+
+```java
+@Test
+public void testQueryUserById(){
+   SqlSession session = MybatisUtils.getSession();
+   SqlSession session2 = MybatisUtils.getSession();
+
+   UserMapper mapper = session.getMapper(UserMapper.class);
+   UserMapper mapper2 = session2.getMapper(UserMapper.class);
+
+   User user = mapper.queryUserById(1);
+   System.out.println(user);
+   session.close();
+   System.out.println("=======");
+   User user2 = mapper2.queryUserById(1);
+   System.out.println(user2);
+   System.out.println(user==user2);
+
+   session2.close();
+}
+```
+
+![image-20200722214810692](img/image-20200722214810692.png)
+
+> 结论
+
+- 只要开启了二级缓存，我们在同一个Mapper中的查询，可以在二级缓存中拿到数据
+- 查出的数据都会被默认先放在一级缓存中
+- 只有会话提交或者关闭以后，一级缓存中的数据才会转到二级缓存中
+
+### 13.5 缓存原理
+
+![image-20200722215839006](img/image-20200722215839006.png)
+
+![image-20200722220510410](img/image-20200722220510410.png)
+
+### 13.6 自定义缓存EhCache
+
+```xml
+<dependency>
+   <groupId>org.mybatis.caches</groupId>
+   <artifactId>mybatis-ehcache</artifactId>
+   <version>1.1.0</version>
+</dependency>
+```
+
+在mapper.xml中使用对应的缓存即可
+
+```
+<mapper namespace = “org.acme.FooMapper” > 
+   <cache type = “org.mybatis.caches.ehcache.EhcacheCache” /> 
+</mapper>
+```
+
+编写ehcache.xml文件，如果在加载时未找到/ehcache.xml资源或出现问题，则将使用默认配置。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+        updateCheck="false">
+   <!--
+      diskStore：为缓存路径，ehcache分为内存和磁盘两级，此属性定义磁盘的缓存位置。参数解释如下：
+      user.home – 用户主目录
+      user.dir – 用户当前工作目录
+      java.io.tmpdir – 默认临时文件路径
+    -->
+   <diskStore path="./tmpdir/Tmp_EhCache"/>
+   
+   <defaultCache
+           eternal="false"
+           maxElementsInMemory="10000"
+           overflowToDisk="false"
+           diskPersistent="false"
+           timeToIdleSeconds="1800"
+           timeToLiveSeconds="259200"
+           memoryStoreEvictionPolicy="LRU"/>
+
+   <cache
+           name="cloud_user"
+           eternal="false"
+           maxElementsInMemory="5000"
+           overflowToDisk="false"
+           diskPersistent="false"
+           timeToIdleSeconds="1800"
+           timeToLiveSeconds="1800"
+           memoryStoreEvictionPolicy="LRU"/>
+   <!--
+      defaultCache：默认缓存策略，当ehcache找不到定义的缓存时，则使用这个缓存策略。只能定义一个。
+    -->
+   <!--
+     name:缓存名称。
+     maxElementsInMemory:缓存最大数目
+     maxElementsOnDisk：硬盘最大缓存个数。
+     eternal:对象是否永久有效，一但设置了，timeout将不起作用。
+     overflowToDisk:是否保存到磁盘，当系统当机时
+     timeToIdleSeconds:设置对象在失效前的允许闲置时间（单位：秒）。仅当eternal=false对象不是永久有效时使用，可选属性，默认值是0，也就是可闲置时间无穷大。
+     timeToLiveSeconds:设置对象在失效前允许存活时间（单位：秒）。最大时间介于创建时间和失效时间之间。仅当eternal=false对象不是永久有效时使用，默认是0.，也就是对象存活时间无穷大。
+     diskPersistent：是否缓存虚拟机重启期数据 Whether the disk store persists between restarts of the Virtual Machine. The default value is false.
+     diskSpoolBufferSizeMB：这个参数设置DiskStore（磁盘缓存）的缓存区大小。默认是30MB。每个Cache都应该有自己的一个缓冲区。
+     diskExpiryThreadIntervalSeconds：磁盘失效线程运行时间间隔，默认是120秒。
+     memoryStoreEvictionPolicy：当达到maxElementsInMemory限制时，Ehcache将会根据指定的策略去清理内存。默认策略是LRU（最近最少使用）。你可以设置为FIFO（先进先出）或是LFU（较少使用）。
+     clearOnFlush：内存数量最大时是否清除。
+     memoryStoreEvictionPolicy:可选策略有：LRU（最近最少使用，默认策略）、FIFO（先进先出）、LFU（最少访问次数）。
+     FIFO，first in first out，这个是大家最熟的，先进先出。
+     LFU， Less Frequently Used，就是上面例子中使用的策略，直白一点就是讲一直以来最少被使用的。如上面所讲，缓存的元素有一个hit属性，hit值最小的将会被清出缓存。
+     LRU，Least Recently Used，最近最少使用的，缓存的元素有一个时间戳，当缓存容量满了，而又需要腾出地方来缓存新的元素的时候，那么现有缓存元素中时间戳离当前时间最远的元素将被清出缓存。
+  -->
+
+</ehcache>
+```
+
