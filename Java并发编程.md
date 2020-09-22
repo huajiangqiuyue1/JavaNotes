@@ -137,7 +137,7 @@ lock.unlock();
 
 创建线程池
 
-```jav
+```java
  ExecutorService threadPool = Executors.newFixedThreadPool(3);//corePoolSize=3
         threadPool.submit(new Callable<>() {
 
@@ -158,7 +158,7 @@ lock.unlock();
 
 ###  07.说说线程池的核心配置参数是干什么的？应该怎么用？
 
- ```jav
+ ```java
 当我们调用上一节的函数生成fixed线程池的时候
 ExecutorService threadPool = Executors.newFixedThreadPool(3);
 它的底层执行的代码如下
@@ -306,7 +306,7 @@ volatile+原子性：不能够保证原子性，只有在一些极端情况下�
 
 （1）lock指令：volatile保证可见性
 
-```tex
+```text
 对volatile修饰的变量，执行写操作的话，JVM会发送一条lock前缀指令给CPU，CPU在计算完后会立即将这个值写回主内存，同时因为MESI缓存一致性协议，所以各个CPU都会对总线进行嗅探，自己本地缓存中的数据是否被修改了。
 如果发现被修改了，那么CPU就会将自己的本地缓存数据过期掉，然后从主内存中重新加载最新的数据。
 
