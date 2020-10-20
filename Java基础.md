@@ -1,3 +1,9 @@
+### JDK1.8新特性
+
+![image-20201018164440295](../Interview/upload/image-20201018164440295.png)
+
+
+
 ### 注解
 
 Annotation（注解）是 Java 提供的一种对元程序中元素关联信息和元数据（metadata）的途径
